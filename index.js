@@ -9,14 +9,12 @@ var getReplaceMap = require('./lib/getReplaceMap');
 var createWriteStream = require('./lib/createWriteStream');
 
 function getReadStream(file) {
-  return new Promise(function(resolve, reject){
+  return new Promise(function(resolve, reject) {
     var inputStream = fs.createReadStream(file, {});
-
-    inputStream.on('open', function(){
+    inputStream.on('open', function() {
       resolve(inputStream);
     });
-
-    inputStream.on('error', function(error){
+    inputStream.on('error', function(error) {
       reject(error);
     });
   });
@@ -36,27 +34,25 @@ function chainReplacers(replaceMap) {
 }
 
 function interceptHash(callback) {
-  return function intercept(inputStream){
+  return function intercept(inputStream) {
     return inputStream.pipe(digest('sha1', 'hex', callback));
   }
 }
 
 function waitForFinish(stream) {
-  return new Promise(function(resolve, reject){
+  return new Promise(function(resolve, reject) {
     stream.on('finish', resolve);
     stream.on('error', reject);
   });
 }
 
 function readAndReplaceStream(file, replaceMap) {
-
   var result = {
     inputHash: null,
     outputHash: null,
     cache: null,
     stream: null
   }
-
   return getReadStream(file)
     .then(interceptHash(function(hash) {
       result.inputHash = hash;
@@ -65,13 +61,13 @@ function readAndReplaceStream(file, replaceMap) {
     .then(interceptHash(function(hash) {
       result.outputHash = hash;
     }))
-    .then(function(stream){
+    .then(function(stream) {
       result.cache = stream.pipe(new StreamCache());
       result.stream = stream;
       return stream;
     })
     .then(waitForFinish)
-    .then(function(){
+    .then(function() {
       return result;
     });
 }
@@ -87,12 +83,11 @@ function createDumpStream(cache) {
 }
 
 function runSinglePath(sourcePath, destPath, options) {
-
   return readAndReplaceStream(sourcePath, options.replaceMap)
-    .then(function handleReadAndReplace(result){
+    .then(function handleReadAndReplace(result) {
       return createWriteStream(destPath, options.encoding)
         .then(createDumpStream(result.cache))
-        .then(function(){
+        .then(function() {
           return {
             src: sourcePath,
             dest: destPath,
@@ -119,7 +114,7 @@ function runPaths(sourcePaths, options) {
     pathTransformer(options.destPattern) :
     identity;
 
-  return Promise.all(sourcePaths.map(function(sourcePath){
+  return Promise.all(sourcePaths.map(function(sourcePath) {
     var destPath = getDestPath(sourcePath);
     return runSinglePath(sourcePath, destPath, options);
   }));
@@ -128,13 +123,13 @@ function runPaths(sourcePaths, options) {
 module.exports = function run(options) {
   return Promise.all([
     listPaths(options.source),
-    getReplaceMap(options.encoding, options.replaceMapPath, options.replaceMap)
-  ]).then(function(results){
+    getReplaceMap(options.encoding, options.replaceMapPath, options.replaceMap, options.source)
+  ]).then(function(results) {
     var sourcePaths = results[0];
     var replaceMap = results[1];
     options.replaceMap = replaceMap;
     return runPaths(sourcePaths, options);
-  }).then(function(result){
+  }).then(function(result) {
     return {
       options: options,
       result: result
